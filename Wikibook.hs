@@ -2,6 +2,7 @@ module Wikibook where
 
 import Control.Applicative
 import Control.Monad
+import Data.Char
 import System.Random
 import Text.Read (readMaybe)
 
@@ -196,7 +197,7 @@ rollNDiceIO :: Int -> IO [Int]
 rollNDiceIO n = replicateM n $ randomRIO (1, 6)
 
 rollDie :: (RandomGen g) => MyState g Int
-rollDie = MyState $ randomR (1, 6)
+rollDie = myState $ randomR (1, 6)
 
 rollDice :: (RandomGen g) => MyState g (Int, Int)
 rollDice = myLiftA2 (,) rollDie rollDie
@@ -205,7 +206,7 @@ rollNDice :: (RandomGen g) => Int -> MyState g [Int]
 rollNDice n = mySequence $ replicate n $ rollDie
 
 getRandom :: Random a => MyState StdGen a
-getRandom = MyState random
+getRandom = myState random
 
 allTypesRandom :: MyState StdGen (Int, Float, Char, Integer, Double, Bool, Int)
 allTypesRandom = (,,,,,,) `myFmap` getRandom
@@ -215,3 +216,19 @@ allTypesRandom = (,,,,,,) `myFmap` getRandom
                           `myApply` getRandom
                           `myApply` getRandom
                           `myApply` getRandom
+
+isValidPassphrase :: String -> Bool
+isValidPassphrase s = length s >= 8
+                      && any isAlpha s
+                      && any isNumber s
+                      && any isPunctuation s
+
+getPassphrase :: MyMaybeT IO String
+getPassphrase = myLift getLine `myBind` \s ->
+                myGuard (isValidPassphrase s) `myBind` \_ ->
+                myReturn s
+
+askPassphrase :: MyMaybeT IO ()
+askPassphrase = (myLift $ putStr "Enter passphrase: ") `myBind` \_ ->
+                getPassphrase `myBind` \_ ->
+                myLift $ putStrLn "Saving to database..."
